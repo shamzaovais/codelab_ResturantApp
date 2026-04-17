@@ -7,28 +7,28 @@ import { updateLocalRestaurantImage } from "@/src/lib/localData.js";
 import { updateRestaurantImageReference } from "@/src/lib/firebase/firestore";
 
 export async function updateRestaurantImage(restaurantId, image) {
-  if (isLocalDemoMode || !storage) {
-    const localUrl = await uploadImage(restaurantId, image);
-    updateLocalRestaurantImage(restaurantId, localUrl);
-    return localUrl;
+  try {
+  if (!restaurantId) {
+    throw new Error("No restuarant ID has been provided.");
   }
 
-  const downloadURL = await uploadImage(restaurantId, image);
-  await updateRestaurantImageReference(restaurantId, downloadURL);
-  return downloadURL;
+  if (!image || !image.name) {
+    throw new Error("A valid image has not been provided.");
+  }
+    const publicImageUrl = await uploadImage(restaurantId, image);
+    await updateRestaurantImageReference(restaurantId, publicImageUrl);
+    
+    return publicImageUrl;
+  } catch (error) {
+    console.error("Error processing image request:", error);
+  }
 }
 
 async function uploadImage(restaurantId, image) {
-  if (isLocalDemoMode || !storage) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(image);
-    });
-  }
 
-  const imageRef = ref(storage, `images/${restaurantId}/${Date.now()}-${image.name}`);
-  const snapshot = await uploadBytesResumable(imageRef, image);
-  return getDownloadURL(snapshot.ref);
+  const filePath = `image/${restaurantId}/${image.name}`;
+  const newImageRef = ref(storage, filePath);
+  await uploadBytesResumable(newImageRef, image);
+
+  return await getDownloadURL(newImageRef);
 }
