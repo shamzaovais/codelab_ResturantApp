@@ -1,4 +1,9 @@
 {
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2021": true
+  },
   "extends": ["eslint:recommended", "next", "prettier"],
   "rules": {
     "@next/next/no-img-element": "off",

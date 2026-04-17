@@ -5,10 +5,14 @@
 
 import { React, useState, useEffect, Suspense } from "react";
 import dynamic from "next/dynamic";
-import { getRestaurantSnapshotById } from "@/src/lib/firebase/firestore.js";
+import {
+  addReviewToRestaurant,
+  getRestaurantSnapshotById,
+} from "@/src/lib/firebase/firestore.js";
 import { useUser } from "@/src/lib/getUser";
 import RestaurantDetails from "@/src/components/RestaurantDetails.jsx";
 import { updateRestaurantImage } from "@/src/lib/firebase/storage.js";
+import { db } from "@/src/lib/firebase/clientApp.js";
 
 const ReviewDialog = dynamic(() => import("@/src/components/ReviewDialog.jsx"));
 
@@ -42,6 +46,10 @@ export default function Restaurant({
     setRestaurantDetails({ ...restaurantDetails, photo: imageURL });
   }
 
+  async function handleSubmitReview(nextReview) {
+    await addReviewToRestaurant(db, id, nextReview);
+  }
+
   const handleClose = () => {
     setIsOpen(false);
     setReview({ rating: 0, text: "" });
@@ -73,6 +81,7 @@ export default function Restaurant({
             onChange={onChange}
             userId={userId}
             id={id}
+            onSubmitReview={handleSubmitReview}
           />
         </Suspense>
       )}

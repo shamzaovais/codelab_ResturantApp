@@ -4,13 +4,12 @@ import React from "react";
 import { getReviewsByRestaurantId } from "@/src/lib/firebase/firestore.js";
 import ReviewsListClient from "@/src/components/Reviews/ReviewsListClient";
 import { ReviewSkeleton } from "@/src/components/Reviews/Review";
-import { getFirestore } from "firebase/firestore";
-import { getAuthenticatedAppForUser } from "@/src/lib/firebase/serverApp";
+import { getAuthenticatedAppForUser, getServerFirestore } from "@/src/lib/firebase/serverApp";
 
 export default async function ReviewsList({ restaurantId, userId }) {
   const { firebaseServerApp } = await getAuthenticatedAppForUser();
   const reviews = await getReviewsByRestaurantId(
-    getFirestore(firebaseServerApp),
+    getServerFirestore(firebaseServerApp),
     restaurantId
   );
 

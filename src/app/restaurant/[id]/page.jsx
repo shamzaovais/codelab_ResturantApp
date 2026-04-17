@@ -4,6 +4,7 @@ import { getRestaurantById } from "@/src/lib/firebase/firestore.js";
 import {
   getAuthenticatedAppForUser,
   getAuthenticatedAppForUser as getUser,
+  getServerFirestore,
 } from "@/src/lib/firebase/serverApp.js";
 import ReviewsList, {
   ReviewsListSkeleton,
@@ -12,7 +13,6 @@ import {
   GeminiSummary,
   GeminiSummarySkeleton,
 } from "@/src/components/Reviews/ReviewSummary";
-import { getFirestore } from "firebase/firestore";
 
 export default async function Home(props) {
   // This is a server component, we can access URL
@@ -22,7 +22,7 @@ export default async function Home(props) {
   const { currentUser } = await getUser();
   const { firebaseServerApp } = await getAuthenticatedAppForUser();
   const restaurant = await getRestaurantById(
-    getFirestore(firebaseServerApp),
+    getServerFirestore(firebaseServerApp),
     params.id
   );
 

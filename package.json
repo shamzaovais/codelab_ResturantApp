@@ -3,11 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
     "start": "next start",
-    "lint": "npm run lint:next && npm:lint:prettier",
-    "lint:next": "next lint",
+    "lint": "npm run lint:next && npm run lint:prettier",
+    "lint:next": "eslint . --ext .js,.jsx",
     "lint:prettier": "prettier --check --ignore-path .gitignore .",
     "lint:fix": "npm run lint:next -- --fix && npm run lint:prettier -- --write"
   },

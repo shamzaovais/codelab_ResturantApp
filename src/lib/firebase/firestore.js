@@ -1,4 +1,12 @@
 import { generateFakeRestaurantsAndReviews } from "@/src/lib/fakeRestaurants.js";
+import {
+  addGeneratedLocalRestaurants,
+  addLocalReview,
+  getLocalRestaurantById,
+  getLocalRestaurants,
+  getLocalReviewsByRestaurantId,
+  subscribeToLocalData,
+} from "@/src/lib/localData.js";
 
 import {
   collection,
@@ -17,6 +25,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "@/src/lib/firebase/clientApp";
+import { isLocalDemoMode } from "@/src/lib/firebase/localMode.js";
 
 export async function updateRestaurantImageReference(
   restaurantId,
@@ -34,15 +43,52 @@ const updateWithRating = async (
   newRatingDocument,
   review
 ) => {
-  return;
+  const restaurant = await transaction.get(docRef);
+  const data = restaurant.data();
+  const newNumRating = data?.numRatings ? data.numRatings + 1 : 1;
+  const newSumRatings = (data?.sumRatings || 0) + Number (review.rating);
+  const newAverage = newSumRatings / newNumRating;
+
+  transaction.update(docRef, {
+    numRatings: newNumRating,
+    sumRatings: newSumRatings,
+    avgRating: newAverage,
+  });
+  transaction.set(newRatingDocument, {
+    ...review,
+    timestamp: Timestamp.fromDate(new Date()),
+  });
 };
 
 export async function addReviewToRestaurant(db, restaurantId, review) {
-  return;
+  if (!restaurantId) {
+    throw new Error("No restaurant ID has provided");
+  }
+
+  if (!review) {
+    throw new Error("A valid review has not been provided");
+  }
+
+  try {
+    const docRef = doc(collection(db, "restaurants"), restaurantId);
+    const newRatingDocument = doc(collection(db, `restaurants/${restaurantId}/ratings`),
+    );
+
+
+
+  await runTransaction(db, async (transaction) => 
+    await updateWithRating(transaction, docRef, newRatingDocument, review),
+  );
+  } catch (error) {
+    console.error(
+        "There was an error adding the rating to the restaurant",
+        error,
+  );
+    throw error;
+  }
 }
 
 function applyQueryFilters(q, { category, city, price, sort }) {
-
   if (category) {
     q = query(q, where("category", "==", category));
   }
@@ -58,15 +104,19 @@ function applyQueryFilters(q, { category, city, price, sort }) {
     q = query(q, orderBy("avgRating", "desc"));
   }
 
-    return q;
+  return q;
 }
 
 export async function getRestaurants(db = db, filters = {}) {
+  if (isLocalDemoMode || !db) {
+    return getLocalRestaurants(filters);
+  }
+
   let q = query(collection(db, "restaurants"));
 
   q = applyQueryFilters(q, filters);
   const results = await getDocs(q);
-  return results.docs.map((doc) => {  
+  return results.docs.map((doc) => {
     return {
       id: doc.id,
       ...doc.data(),
@@ -76,13 +126,31 @@ export async function getRestaurants(db = db, filters = {}) {
 }
 
 export function getRestaurantsSnapshot(cb, filters = {}) {
-  return;
+  if (isLocalDemoMode || !db) {
+    cb(getLocalRestaurants(filters));
+    return subscribeToLocalData(() => cb(getLocalRestaurants(filters)));
+  }
+
+  let q = query(collection(db, "restaurants"));
+  q = applyQueryFilters(q, filters);
+
+  return onSnapshot(q, (querySnapshot) => {
+    const results = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+      timestamp: doc.data().timestamp.toDate(),
+    }));
+    cb(results);
+  });
 }
 
 export async function getRestaurantById(db, restaurantId) {
   if (!restaurantId) {
     console.log("Error: Invalid ID received: ", restaurantId);
     return;
+  }
+  if (isLocalDemoMode || !db) {
+    return getLocalRestaurantById(restaurantId);
   }
   const docRef = doc(db, "restaurants", restaurantId);
   const docSnap = await getDoc(docRef);
@@ -93,13 +161,28 @@ export async function getRestaurantById(db, restaurantId) {
 }
 
 export function getRestaurantSnapshotById(restaurantId, cb) {
-  return;
+  if (isLocalDemoMode || !db) {
+    cb(getLocalRestaurantById(restaurantId));
+    return subscribeToLocalData(() => cb(getLocalRestaurantById(restaurantId)));
+  }
+
+  const docRef = doc(db, "restaurants", restaurantId);
+  return onSnapshot(docRef, (docSnapshot) => {
+    cb({
+      ...docSnapshot.data(),
+      timestamp: docSnapshot.data().timestamp.toDate(),
+    });
+  });
 }
 
 export async function getReviewsByRestaurantId(db, restaurantId) {
   if (!restaurantId) {
     console.log("Error: Invalid restaurantId received: ", restaurantId);
     return;
+  }
+
+  if (isLocalDemoMode || !db) {
+    return getLocalReviewsByRestaurantId(restaurantId);
   }
 
   const q = query(
@@ -124,6 +207,13 @@ export function getReviewsSnapshotByRestaurantId(restaurantId, cb) {
     return;
   }
 
+  if (isLocalDemoMode || !db) {
+    cb(getLocalReviewsByRestaurantId(restaurantId));
+    return subscribeToLocalData(() =>
+      cb(getLocalReviewsByRestaurantId(restaurantId))
+    );
+  }
+
   const q = query(
     collection(db, "restaurants", restaurantId, "ratings"),
     orderBy("timestamp", "desc")
@@ -142,6 +232,11 @@ export function getReviewsSnapshotByRestaurantId(restaurantId, cb) {
 }
 
 export async function addFakeRestaurantsAndReviews() {
+  if (isLocalDemoMode || !db) {
+    await addGeneratedLocalRestaurants();
+    return;
+  }
+
   const data = await generateFakeRestaurantsAndReviews();
   for (const { restaurantData, ratingsData } of data) {
     try {
